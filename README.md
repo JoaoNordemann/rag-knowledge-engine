@@ -1,26 +1,38 @@
-# RAG Knowledge Engine: Assistente Especialista de Documentos
+# Vector Database com ChromaDB (RAG retrieval em pt-BR)
 
-Este repositorio contem a implementacao de um sistema de Retrieval-Augmented Generation (RAG) projetado para indexar textos complexos e fornecer respostas precisas utilizando Modelos de Linguagem de Grande Escala (LLMs) locais. O objetivo principal da arquitetura e garantir respostas baseadas exclusivamente nos documentos fornecidos, reduzindo a zero o risco de alucinacao.
+Camada de retrieval semântico com ChromaDB persistente, embeddings multilíngues e métrica cosseno.
 
-## Arquitetura e Tecnologias
+## Decisões técnicas
+| Tema | Decisão | Motivo |
+|---|---|---|
+| Embedding | `paraphrase-multilingual-MiniLM-L12-v2` (384d) | `all-MiniLM-L6-v2` é centrado em inglês e recupera mal em pt-BR |
+| Armazenamento | `PersistentClient("./chroma_db")` | Índice sobrevive entre execuções |
+| Métrica | `hnsw:space = cosine` | Padrão do Chroma é L2; cosseno é o usual para embeddings de texto |
+| Escrita | `upsert` | Idempotente |
+| Similaridade | `1 - distância` | Valor mais legível para threshold |
 
-* Banco de Dados Vetorial: ChromaDB (Local/In-Memory)
-* Modelo de Embeddings: Sentence-Transformers (all-MiniLM-L6-v2)
-* LLM de Inferencia: Mistral-7B-Instruct-v0.2 (Quantizado em 4-bits com bitsandbytes) - [Em desenvolvimento]
-* API/Backend: FastAPI - [Planejado]
+> A métrica é definida na criação da coleção. Se já existir `chroma_db/` com L2, apague a pasta.
 
-## Roadmap de Implementacao
+## Uso
+```bash
+pip install -r requirements.txt
+python vector_database_chromadb.py
+```
+Como biblioteca:
+```python
+from vector_database_chromadb import get_collection, index_documents, search
+col = get_collection()
+index_documents(col, [{"id": "d1", "text": "...", "metadata": {"dominio": "delivery"}}])
+search(col, "meu pedido atrasou", k=3, where={"dominio": "delivery"})
+```
 
-O projeto esta estruturado em modulos para demonstrar a construcao de ponta a ponta do pipeline de dados e inferencia:
+## Testes
+```bash
+pytest -q
+```
 
-- [x] Fase 1: Bancos Vetoriais e Embeddings (Script `1_vector_database_chromadb.ipynb`). Indexacao de textos e busca semantica com ChromaDB.
-- [ ] Fase 2: Pipeline RAG. Integracao do banco de dados vetorial com o LLM para leitura do contexto e geracao da resposta em linguagem natural.
-- [ ] Fase 3: Disponibilizacao (API). Empacotamento do motor RAG em uma API (FastAPI) para simular um ambiente de producao.
-
-## Como Executar (Fase 1 - Busca Semantica)
-
-Para rodar o modulo de indexacao e busca no banco de dados vetorial:
-
-1. Instale as dependencias base:
-   ```bash
-   pip install chromadb sentence-transformers
+## Roadmap
+- [ ] Golden set de perguntas pt-BR + métricas hit@k e MRR
+- [ ] Comparar MiniLM-multilingual vs multilingual-e5-small vs bge-m3
+- [ ] Chunking com overlap e dataset de delivery publicado no Hugging Face
+- [ ] Reranking com cross-encoder
